@@ -1,0 +1,61 @@
+openapi: 3.0.3
+info:
+  title: Execute Query API
+  version: 1.0.0
+  description: Endpoints to run saved queries and inspect results.
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+
+paths:
+  /execute-query:
+    get:
+      summary: executing the query
+      tags: [Execute]
+      parameters:
+        - name: query_identifier
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful execution
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                sample:
+                  summary: The executed query
+                  value: "SELECT * FROM users WHERE active = true"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDto'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDto'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDto'
+
+
+components:
+  schemas:
+    ErrorDto:
+      type: object
+      properties:
+        errorCode:
+          type: integer
+        message:
+          type: string
