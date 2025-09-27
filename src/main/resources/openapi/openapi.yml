@@ -9,6 +9,26 @@ servers:
     description: Local development server
 
 paths:
+  /listfiles:
+    get:
+      summary: listing all files
+      tags: [Execute]
+      responses:
+          '200':
+            description: Successful execution
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
+          '404':
+            description: No any files existing
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorDto'
+
   /execute-query:
     get:
       summary: executing the query
@@ -19,6 +39,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "get_user_data"
       responses:
         '200':
           description: Successful execution

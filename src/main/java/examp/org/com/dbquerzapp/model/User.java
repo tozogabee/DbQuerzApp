@@ -33,7 +33,6 @@ public class User {
     @Column(nullable = false)
     private Integer age;
 
-    @Email
     @NotBlank
     @Column(nullable = false, unique = true)
     private String email;

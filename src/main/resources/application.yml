@@ -2,14 +2,20 @@ spring:
   application:
     name: DbQuerzApp
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
+    url: jdbc:postgresql://localhost:5432/appdb
+    username: appuser
+    password: secret
   jpa:
     hibernate:
-      ddl-auto: create-drop
-  h2:
-    console:
-      enabled: true
+      ddl-auto: validate   # or update for dev
+    properties:
+      hibernate.format_sql: true
+  sql:
+    init:
+      mode: never
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
 springdoc:
   api-docs:
     path: /v3/api-docs
