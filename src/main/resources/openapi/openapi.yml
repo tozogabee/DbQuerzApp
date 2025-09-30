@@ -9,20 +9,26 @@ servers:
     description: Local development server
 
 paths:
-  /listfiles:
+  /execute-query/files:
     get:
+      operationId: listFiles
       summary: listing all files
-      tags: [Execute]
+      tags: [ExecuteQuery]
       responses:
-          '200':
-            description: Successful execution
-            content:
-              application/json:
-                schema:
-                  type: array
-                  items:
-                    type: string
-          '404':
+        '200':
+          description: Successful execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+              examples:
+                sample:
+                  summary: Query execution result
+                  value:
+                    success: true
+                    data: [ { "get-user-data"} ]
+                    execution_time_ms: 120
+        '404':
             description: No any files existing
             content:
               application/json:
@@ -31,8 +37,9 @@ paths:
 
   /execute-query:
     get:
+      operationId: executeQuery
       summary: executing the query
-      tags: [Execute]
+      tags: [ExecuteQuery]
       parameters:
         - name: query_identifier
           in: query
@@ -46,11 +53,14 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/QueryResponse'
               examples:
                 sample:
-                  summary: The executed query
-                  value: "SELECT * FROM users WHERE active = true"
+                  summary: Query execution result
+                  value:
+                    success: true
+                    data: [{"id": 1, "name": "John"}, {"id": 2, "name": "Jane"}]
+                    execution_time_ms: 120
         '400':
           description: Bad Request
           content:
@@ -73,6 +83,30 @@ paths:
 
 components:
   schemas:
+    QueryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the query execution was successful
+        data:
+          type: array
+          items:
+            type: object
+          description: Array of query result rows
+        error:
+          type: string
+          example: "Query file not found"
+        code:
+          type: integer
+          example: 404
+        execution_time_ms:
+          type: integer
+          format: int64
+          description: Query execution time in milliseconds
+      required:
+        - success
+        - execution_time_ms
     ErrorDto:
       type: object
       properties:
