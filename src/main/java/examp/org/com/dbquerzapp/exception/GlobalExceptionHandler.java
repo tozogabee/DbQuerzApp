@@ -28,8 +28,8 @@ public class GlobalExceptionHandler {
 
     // If you truly need a “not found” mapping, catch a specific exception type you throw,
     // e.g. ResourceNotFoundException, rather than IOException.
-    @ExceptionHandler(OpenApiResourceNotFoundException.class)
-    public ResponseEntity<ErrorDto> handleNotFound(OpenApiResourceNotFoundException ex) {
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<ErrorDto> handleNotFound(IOException ex) {
         return body(HttpStatus.NOT_FOUND, "Resource not found: " + ex.getMessage());
     }
 

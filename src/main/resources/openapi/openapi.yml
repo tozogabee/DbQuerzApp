@@ -93,13 +93,15 @@ components:
           type: array
           items:
             type: object
-          description: Array of query result rows
+          description: Array of query result rows (only present when success=true)
         error:
           type: string
           example: "Query file not found"
+          description: Error message (only present when success=false)
         code:
           type: integer
           example: 404
+          description: Error code (only present when success=false)
         execution_time_ms:
           type: integer
           format: int64

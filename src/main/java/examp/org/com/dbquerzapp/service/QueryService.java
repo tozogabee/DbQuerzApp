@@ -1,5 +1,7 @@
 package examp.org.com.dbquerzapp.service;
 
+import examp.org.com.dbquerzapp.validator.SqlValidator;
+import examp.org.com.dbquerzapp.validator.ValidationResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -17,6 +19,9 @@ public class QueryService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private SqlValidator sqlValidator;
+
     private final PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 
     public String loadQueryFromFile(String queryIdentifier) throws IOException {
@@ -24,38 +29,21 @@ public class QueryService {
         Resource resource = resolver.getResource("classpath:queries/" + fileName);
 
         if (!resource.exists()) {
-            throw new IllegalArgumentException("Query file not found: " + fileName);
+            throw new IOException("Query file not found: " + fileName);
         }
 
         return resource.getContentAsString(StandardCharsets.UTF_8);
     }
 
-    public boolean isValidSql(String sql) {
-        if (sql == null || sql.trim().isEmpty()) {
-            return false;
-        }
-
-        String trimmedSql = sql.trim().toUpperCase();
-
-        // Allow only SELECT statements for security
-        if (!trimmedSql.startsWith("SELECT")) {
-            return false;
-        }
-
-        // Basic SQL injection protection
-        String[] dangerousKeywords = {"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "TRUNCATE", "EXEC", "EXECUTE"};
-        for (String keyword : dangerousKeywords) {
-            if (trimmedSql.contains(keyword)) {
-                return false;
-            }
-        }
-
-        return true;
+    public ValidationResult validateSql(String sql) {
+        return sqlValidator.validateSql(sql);
     }
 
     public List<Map<String, Object>> executeQuery(String sql) {
-        if (!isValidSql(sql)) {
-            throw new IllegalArgumentException("Invalid or unsafe SQL query");
+        ValidationResult validationResult = validateSql(sql);
+
+        if (!validationResult.isValid()) {
+            throw new IllegalArgumentException("SQL validation failed: " + validationResult.getErrorMessage());
         }
 
         return jdbcTemplate.queryForList(sql);

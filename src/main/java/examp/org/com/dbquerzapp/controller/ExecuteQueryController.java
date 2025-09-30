@@ -24,19 +24,12 @@ public class ExecuteQueryController implements ExecuteQueryApi {
     public ResponseEntity<QueryResponse> executeQuery(String queryIdentifier) {
         long startTime = System.currentTimeMillis();
         try {
-
-            long executionTime = System.currentTimeMillis() - startTime;
-
-            // Load SQL from file
             String sql = queryService.loadQueryFromFile(queryIdentifier);
 
-            // Execute the query
             List<Map<String, Object>> results = queryService.executeQuery(sql);
 
-
-            // Convert results to List<Object>
             List<Object> data = new ArrayList<>(results);
-
+            long executionTime = System.currentTimeMillis() - startTime;
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.TRUE);
             response.setData(data);
@@ -44,9 +37,7 @@ public class ExecuteQueryController implements ExecuteQueryApi {
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException e) {
-            // Query not found or invalid SQL
             long executionTime = System.currentTimeMillis() - startTime;
-            //QueryResponse response = QueryResponse.failure(executionTime);
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.FALSE);
             response.setExecutionTimeMs(executionTime);
@@ -54,7 +45,6 @@ public class ExecuteQueryController implements ExecuteQueryApi {
             return ResponseEntity.badRequest().body(response);
 
         } catch (IOException e) {
-            // File reading error
             long executionTime = System.currentTimeMillis() - startTime;
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.FALSE);
@@ -64,7 +54,6 @@ public class ExecuteQueryController implements ExecuteQueryApi {
             return ResponseEntity.ofNullable(response);
 
         } catch (Exception e) {
-            // SQL execution error
             long executionTime = System.currentTimeMillis() - startTime;
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.FALSE);
