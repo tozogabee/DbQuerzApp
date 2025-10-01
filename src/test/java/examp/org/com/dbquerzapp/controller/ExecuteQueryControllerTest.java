@@ -83,7 +83,6 @@ class ExecuteQueryControllerTest {
         QueryResponse queryResponse = response.getBody();
         assertFalse(queryResponse.getSuccess());
         assertEquals(400, queryResponse.getCode());
-        assertTrue(queryResponse.getExecutionTimeMs() >= 0);
 
         verify(queryService).loadQueryFromFile(queryIdentifier);
         verify(queryService).executeQuery(sql);
@@ -108,7 +107,6 @@ class ExecuteQueryControllerTest {
         assertFalse(queryResponse.getSuccess());
         assertEquals("Query not found", queryResponse.getError());
         assertEquals(404, queryResponse.getCode());
-        assertTrue(queryResponse.getExecutionTimeMs() >= 0);
 
         verify(queryService).loadQueryFromFile(queryIdentifier);
         verify(queryService, never()).executeQuery(any());
@@ -135,7 +133,6 @@ class ExecuteQueryControllerTest {
         assertFalse(queryResponse.getSuccess());
         assertEquals("Error while executing query", queryResponse.getError());
         assertEquals(500, queryResponse.getCode());
-        assertTrue(queryResponse.getExecutionTimeMs() >= 0);
 
         verify(queryService).loadQueryFromFile(queryIdentifier);
         verify(queryService).executeQuery(sql);

@@ -1,10 +1,12 @@
 package examp.org.com.dbquerzapp.validator;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
 
 @Component
+@Slf4j
 public class SqlValidator {
 
     private static final Pattern SINGLE_LINE_COMMENT = Pattern.compile("--.*");
@@ -62,7 +64,9 @@ public class SqlValidator {
     };
 
     public ValidationResult validateSql(String sql) {
+        log.info("validateSql: " + sql);
         if (sql == null || sql.trim().isEmpty()) {
+            log.error("sql is null or empty");
             return ValidationResult.invalid("SQL is null or empty");
         }
 
@@ -71,33 +75,41 @@ public class SqlValidator {
 
         for (DANGEROUS_KEYWORD keyword : DANGEROUS_KEYWORD.values()) {
             if (containsKeyword(upperSql, keyword.name())) {
+                log.error("Dangerous SQL keyword detected: " + keyword);
                 return ValidationResult.invalid("Dangerous SQL keyword detected: " + keyword);
             }
         }
 
         ValidationResult syntaxResult = validateSelectSqlSyntax(cleanedSql);
         if (!syntaxResult.isValid()) {
+            log.error("syntaxResult is invalid: " + syntaxResult);
             return syntaxResult;
         }
 
         if (!isValidSqlFormat(cleanedSql)) {
+            log.error("sql format is invalid: " + cleanedSql);
             return ValidationResult.invalid("Invalid SQL format");
         }
 
         for (Pattern pattern : INJECTION_PATTERNS) {
             if (pattern.matcher(cleanedSql).find()) {
+                log.error("Potential SQL injection detected: " + pattern);
                 return ValidationResult.invalid("Potential SQL injection detected");
             }
         }
 
         if (!upperSql.trim().startsWith("SELECT")) {
+            log.error("Only SELECT statements are allowed");
             return ValidationResult.invalid("Only SELECT statements are allowed");
         }
 
         if (containsMultipleStatements(cleanedSql)) {
+            log.error("Multiple statements detected");
             return ValidationResult.invalid("Multiple SQL statements are not allowed");
         }
 
+        log.info("Validate SQL: " + cleanedSql);
+        log.info("Validate SQL finished successfully");
         return ValidationResult.valid();
     }
 
@@ -153,10 +165,12 @@ public class SqlValidator {
 
         // Check for invalid identifiers (table/column names starting with numbers)
         if (INVALID_IDENTIFIER.matcher(sql).find()) {
+            log.error("Invalid SQL syntax: " + sql);
             return ValidationResult.invalid("Invalid identifier: table or column names cannot start with numbers");
         }
 
         if (!SELECT_SQL_PATTERN.matcher(trimmedSql).matches()) {
+            log.error("Invalid SQL syntax: " + sql);
             return ValidationResult.invalid("Invalid SELECT SQL syntax. Expected format: SELECT columns FROM table [WHERE conditions] [GROUP BY ...] [HAVING ...] [ORDER BY ...] [LIMIT ...]");
         }
 
