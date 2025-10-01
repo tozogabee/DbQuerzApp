@@ -342,8 +342,10 @@ Ensure you have:
 
 ## License
 
-[Add your license information here]
+Toth Gabor @Copyright
 
 ## Contact
 
-[Add your contact information here]
+Gabor Toth
+tozogabee@gmail.com
+0036202798746
