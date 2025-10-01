@@ -3,9 +3,16 @@ spring:
     name: DbQuerzApp
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:appdb}
-    username: ${DB_USERNAME:appuser}
+    username: ${DB_USER:appuser}
     password: ${DB_PASSWORD:secret}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 10
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+      pool-name: HikariPool-DbQuerzApp
   jpa:
     hibernate:
       ddl-auto: validate   # or update for dev
