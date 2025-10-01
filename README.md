@@ -346,6 +346,6 @@ Toth Gabor @Copyright
 
 ## Contact
 
-Gabor Toth
-tozogabee@gmail.com
-0036202798746
+- Gabor Toth
+- tozogabee@gmail.com
+- 0036202798746
