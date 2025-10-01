@@ -16,6 +16,8 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
+  jackson:
+    default-property-inclusion: non_null
 springdoc:
   api-docs:
     path: /v3/api-docs

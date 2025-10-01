@@ -37,20 +37,21 @@ public class ExecuteQueryController implements ExecuteQueryApi {
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException e) {
-            long executionTime = System.currentTimeMillis() - startTime;
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.FALSE);
-            response.setExecutionTimeMs(executionTime);
+            response.setExecutionTimeMs(null);
+            response.setData(null);
+            response.setError(e.getMessage());
             response.setCode(400);
             return ResponseEntity.badRequest().body(response);
 
         } catch (IOException e) {
-            long executionTime = System.currentTimeMillis() - startTime;
             QueryResponse response = new QueryResponse();
             response.setSuccess(Boolean.FALSE);
             response.setError("Query not found");
             response.setCode(404);
-            response.setExecutionTimeMs(executionTime);
+            response.setExecutionTimeMs(null);
+            response.setData(null);
             return ResponseEntity.ofNullable(response);
 
         } catch (Exception e) {

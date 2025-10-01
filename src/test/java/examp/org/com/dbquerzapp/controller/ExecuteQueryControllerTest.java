@@ -8,8 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -173,17 +171,6 @@ class ExecuteQueryControllerTest {
     @Test
     @DisplayName("Should list SQL files successfully")
     void testListFilesSuccess() throws IOException {
-        // Given
-        PathMatchingResourcePatternResolver mockResolver = mock(PathMatchingResourcePatternResolver.class);
-        Resource[] mockResources = {
-            createMockResource("get_user_data.sql"),
-            createMockResource("get_order_data.sql"),
-            createMockResource("get_product_data.sql")
-        };
-
-        // We need to mock the static resolver creation since it's instantiated in the method
-        // For this test, we'll focus on the logic rather than the actual file system interaction
-
         // When
         ResponseEntity<QueryResponse> response = controller.listFiles();
 
@@ -245,7 +232,7 @@ class ExecuteQueryControllerTest {
         List<Map<String, Object>> mockResults = Arrays.asList(
             Map.of("id", 1, "name", "John", "email", "john@example.com", "active", true, "created_date", testDate),
             Map.of("id", 2, "name", "Jane", "email", "jane@example.com", "active", false, "created_date", testDate),
-            Map.of("id", 3, "name", "Bob", "email", null, "active", true, "created_date", testDate)
+            Map.of("id", 3, "name", "Bob", "email", "ilona@gmail.com", "active", true, "created_date", testDate)
         );
 
         when(queryService.loadQueryFromFile(queryIdentifier)).thenReturn(sql);
@@ -319,12 +306,5 @@ class ExecuteQueryControllerTest {
         assertEquals(404, queryResponse.getCode());
 
         verify(queryService).loadQueryFromFile(queryIdentifier);
-    }
-
-    private Resource createMockResource(String filename) throws IOException {
-        Resource mockResource = mock(Resource.class);
-        when(mockResource.getFilename()).thenReturn(filename);
-        when(mockResource.exists()).thenReturn(true);
-        return mockResource;
     }
 }

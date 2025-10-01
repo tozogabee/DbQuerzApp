@@ -1,13 +1,13 @@
 package examp.org.com.dbquerzapp.validator;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
 public class ValidationResult {
         private final boolean valid;
         private final String errorMessage;
-
-        private ValidationResult(boolean valid, String errorMessage) {
-            this.valid = valid;
-            this.errorMessage = errorMessage;
-        }
 
         public static ValidationResult valid() {
             return new ValidationResult(true, null);
@@ -17,11 +17,4 @@ public class ValidationResult {
             return new ValidationResult(false, errorMessage);
         }
 
-        public boolean isValid() {
-            return valid;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
 }

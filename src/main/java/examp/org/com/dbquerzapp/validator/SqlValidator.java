@@ -3,20 +3,60 @@ package examp.org.com.dbquerzapp.validator;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
-import java.util.Set;
-import java.util.HashSet;
 
 @Component
 public class SqlValidator {
 
     private static final Pattern SINGLE_LINE_COMMENT = Pattern.compile("--.*");
     private static final Pattern MULTI_LINE_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+    private static final Pattern INVALID_IDENTIFIER = Pattern.compile("(?<!`|\"|')\\b[0-9@#$%^&*\\-+=\\[\\]{}|;:?!~](?=.*[a-zA-Z_])[a-zA-Z0-9_]+\\b(?!`|\"|')");
+    private static final String IDENTIFIER = "(?:`[^`]+`|\"[^\"]+\"|[A-Za-z_][A-Za-z0-9_]*)";
+    private static final String QUALIFIED_IDENTIFIER = IDENTIFIER + "(?:\\s*\\.\\s*" + IDENTIFIER + ")?";
+    private static final String STRING_LITERAL = "'(?:''|[^'])*'";
+    private static final String NUMBER_LITERAL = "\\d+(?:\\.\\d+)?";
+    private static final String VALUE = "(?:" + STRING_LITERAL + "|" + NUMBER_LITERAL + "|" + QUALIFIED_IDENTIFIER + ")";
+    private static final String FUNCTION_CALL = QUALIFIED_IDENTIFIER + "\\s*\\(\\s*(?:\\*|" + VALUE + "(?:\\s*,\\s*" + VALUE + ")*)?\\s*\\)";
+    private static final String CASE_EXPR = "\\(\\s*CASE(?:\\s+WHEN\\s+.+?\\s+THEN\\s+.+?)+(?:\\s+ELSE\\s+.+?)?\\s+END\\s*\\)";
+    private static final String COLUMN_EXPR = "(?:" + CASE_EXPR + "|" + FUNCTION_CALL + "|" + QUALIFIED_IDENTIFIER + ")";
+    private static final String COLUMN_ALIAS = "(?:\\s+(?:AS\\s+)?" + IDENTIFIER + ")?";
+    private static final String SELECT_ITEM = COLUMN_EXPR + COLUMN_ALIAS;
+    private static final String SELECT_LIST = "(?:\\*|" + SELECT_ITEM + "(?:\\s*,\\s*" + SELECT_ITEM + ")*)";
+    private static final String TABLE_NAME = QUALIFIED_IDENTIFIER + "(?:\\s+(?:AS\\s+)?" + IDENTIFIER + ")?";
+    private static final String COMPARISON_OP = "(?:=|!=|<>|<=|>=|<|>|LIKE)";
+    private static final String WHERE_OPERAND = "(?:" + FUNCTION_CALL + "|" + VALUE + ")";
+    private static final String SIMPLE_CONDITION = WHERE_OPERAND + "\\s*" + COMPARISON_OP + "\\s*" + WHERE_OPERAND + "(?:\\s+ESCAPE\\s+" + STRING_LITERAL + ")?";
+    private static final String NULL_CONDITION = WHERE_OPERAND + "\\s+IS\\s+(?:NOT\\s+)?NULL";
+    private static final String IN_CONDITION = WHERE_OPERAND + "\\s+(?:NOT\\s+)?IN\\s*\\(\\s*" + VALUE + "(?:\\s*,\\s*" + VALUE + ")*\\s*\\)";
+    private static final String BETWEEN_CONDITION = WHERE_OPERAND + "\\s+(?:NOT\\s+)?BETWEEN\\s+" + VALUE + "\\s+AND\\s+" + VALUE;
+    private static final String BASIC_CONDITION = "(?:" + SIMPLE_CONDITION + "|" + NULL_CONDITION + "|" + IN_CONDITION + "|" + BETWEEN_CONDITION + ")";
+    private static final String WHERE_CLAUSE = "(?:\\(\\s*)*" + BASIC_CONDITION + "(?:\\s*\\))*(?:\\s+(?:AND|OR)\\s+(?:\\(\\s*)*" + BASIC_CONDITION + "(?:\\s*\\))*)*";
+    private static final String GROUP_BY_ITEM = COLUMN_EXPR;
+    private static final String GROUP_BY = "GROUP\\s+BY\\s+" + GROUP_BY_ITEM + "(?:\\s*,\\s*" + GROUP_BY_ITEM + ")*";
+    private static final String HAVING = "HAVING\\s+" + WHERE_CLAUSE;
+    private static final String ORDER_DIRECTION = "(?:ASC|DESC)";
+    private static final String ORDER_BY_ITEM = COLUMN_EXPR + "(?:\\s+" + ORDER_DIRECTION + ")?";
+    private static final String ORDER_BY = "ORDER\\s+BY\\s+" + ORDER_BY_ITEM + "(?:\\s*,\\s*" + ORDER_BY_ITEM + ")*";
+    private static final String LIMIT = "LIMIT\\s+\\d+(?:\\s+OFFSET\\s+\\d+)?";
+    // UNION clause
+    private static final String UNION_CLAUSE = "UNION(?:\\s+ALL)?\\s+SELECT\\s+" + SELECT_LIST + "\\s+FROM\\s+" + TABLE_NAME + "(?:\\s+WHERE\\s+" + WHERE_CLAUSE + ")?";
+
+    private static final Pattern SELECT_SQL_PATTERN = Pattern.compile(
+        "^(?i)(?!.*\\s+WHERE\\s*$)" +
+        "SELECT\\s+" + SELECT_LIST +
+        "\\s+FROM\\s+" + TABLE_NAME +
+        "(?:\\s+WHERE\\s+" + WHERE_CLAUSE + ")?" +
+        "(?:\\s+" + GROUP_BY + ")?" +
+        "(?:\\s+" + HAVING + ")?" +
+        "(?:\\s+" + ORDER_BY + ")?" +
+        "(?:\\s+" + LIMIT + ")?" +
+        "(?:\\s+" + UNION_CLAUSE + ")*$"  // Allow multiple UNION clauses
+    );
 
     private static final Pattern[] INJECTION_PATTERNS = {
         Pattern.compile("';.*--", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("\\bunion\\s+select", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("\\bor\\s+1\\s*=\\s*1", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("\\band\\s+1\\s*=\\s*1", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\b(?:WHERE|OR|AND)\\s+1\\s*=\\s*1", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\b(?:WHERE|OR|AND)\\s+0\\s*=\\s*0", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\b(?:WHERE|OR|AND)\\s+'[^']*'\\s*=\\s*'[^']*'", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\bor\\s+'.*'\\s*=\\s*'.*'", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\band\\s+'.*'\\s*=\\s*'.*'", Pattern.CASE_INSENSITIVE)
     };
@@ -27,21 +67,21 @@ public class SqlValidator {
         }
 
         String cleanedSql = cleanSql(sql);
+        String upperSql = cleanedSql.toUpperCase();
 
-        ValidationResult syntaxResult = validateSqlSyntax(cleanedSql);
+        for (DANGEROUS_KEYWORD keyword : DANGEROUS_KEYWORD.values()) {
+            if (containsKeyword(upperSql, keyword.name())) {
+                return ValidationResult.invalid("Dangerous SQL keyword detected: " + keyword);
+            }
+        }
+
+        ValidationResult syntaxResult = validateSelectSqlSyntax(cleanedSql);
         if (!syntaxResult.isValid()) {
             return syntaxResult;
         }
 
         if (!isValidSqlFormat(cleanedSql)) {
             return ValidationResult.invalid("Invalid SQL format");
-        }
-
-        String upperSql = cleanedSql.toUpperCase();
-        for (DANGEROUS_KEYWORD keyword : DANGEROUS_KEYWORD.values()) {
-            if (containsKeyword(upperSql, keyword.name())) {
-                return ValidationResult.invalid("Dangerous SQL keyword detected: " + keyword);
-            }
         }
 
         for (Pattern pattern : INJECTION_PATTERNS) {
@@ -108,112 +148,19 @@ public class SqlValidator {
         return false;
     }
 
-    private ValidationResult validateSqlSyntax(String sql) {
-        String upperSql = sql.toUpperCase().trim();
+    private ValidationResult validateSelectSqlSyntax(String sql) {
+        String trimmedSql = sql.trim();
 
-        if (!upperSql.startsWith("SELECT")) {
-            return ValidationResult.invalid("SQL must start with SELECT");
+        // Check for invalid identifiers (table/column names starting with numbers)
+        if (INVALID_IDENTIFIER.matcher(sql).find()) {
+            return ValidationResult.invalid("Invalid identifier: table or column names cannot start with numbers");
         }
 
-        if (upperSql.contains("SELECT FORM")) {
-            return ValidationResult.invalid("Invalid syntax: 'SELECT FORM' should be 'SELECT FROM'");
-        }
-
-        if (upperSql.contains("FORM ")) {
-            return ValidationResult.invalid("Invalid syntax: 'FORM' should be 'FROM'");
-        }
-
-        if (upperSql.contains(" FROM ")) {
-            String[] parts = upperSql.split("\\s+FROM\\s+", 2);
-            if (parts.length == 2) {
-                String afterFrom = parts[1].trim();
-                if (afterFrom.isEmpty()) {
-                    return ValidationResult.invalid("Missing table name after FROM");
-                }
-
-                // Check if FROM is followed by a valid identifier
-                String[] fromParts = afterFrom.split("\\s+", 2);
-                String tableName = fromParts[0];
-                if (!isValidIdentifier(tableName)) {
-                    return ValidationResult.invalid("Invalid table name: " + tableName);
-                }
-            }
-        } else if (upperSql.contains("FROM")) {
-            // FROM exists but not properly spaced
-            return ValidationResult.invalid("Invalid syntax: FROM clause needs proper spacing");
-        }
-
-        // Check for proper WHERE clause structure
-        if (upperSql.contains(" WHERE ")) {
-            String[] parts = upperSql.split("\\s+WHERE\\s+", 2);
-            if (parts.length == 2) {
-                String whereClause = parts[1].trim();
-                if (whereClause.isEmpty()) {
-                    return ValidationResult.invalid("Empty WHERE clause");
-                }
-            }
-        }
-
-        // Check for common misspellings
-        if (upperSql.contains("SELCT ") || upperSql.contains("SLECT ")) {
-            return ValidationResult.invalid("Invalid syntax: 'SELECT' is misspelled");
-        }
-
-        if (upperSql.contains(" WHRE ") || upperSql.contains(" WERE ")) {
-            return ValidationResult.invalid("Invalid syntax: 'WHERE' is misspelled");
-        }
-
-        if (upperSql.contains(" ODER ") || upperSql.contains(" ORDR ")) {
-            return ValidationResult.invalid("Invalid syntax: 'ORDER' is misspelled");
-        }
-
-        // Check for unmatched quotes
-        if (!hasMatchedQuotes(sql)) {
-            return ValidationResult.invalid("Unmatched quotes in SQL");
+        if (!SELECT_SQL_PATTERN.matcher(trimmedSql).matches()) {
+            return ValidationResult.invalid("Invalid SELECT SQL syntax. Expected format: SELECT columns FROM table [WHERE conditions] [GROUP BY ...] [HAVING ...] [ORDER BY ...] [LIMIT ...]");
         }
 
         return ValidationResult.valid();
-    }
-
-    private boolean isValidIdentifier(String identifier) {
-        if (identifier == null || identifier.trim().isEmpty()) {
-            return false;
-        }
-
-        // Remove backticks, quotes if present
-        String cleaned = identifier.replaceAll("[`\"'\\[\\]]", "");
-
-        // Check if it starts with letter or underscore and contains only valid characters
-        return cleaned.matches("^[a-zA-Z_][a-zA-Z0-9_]*$");
-    }
-
-    private boolean hasMatchedQuotes(String sql) {
-        int singleQuotes = 0;
-        int doubleQuotes = 0;
-        boolean inSingle = false;
-        boolean inDouble = false;
-
-        for (int i = 0; i < sql.length(); i++) {
-            char c = sql.charAt(i);
-
-            if (c == '\'' && !inDouble) {
-                if (!inSingle) {
-                    singleQuotes++;
-                    inSingle = true;
-                } else {
-                    inSingle = false;
-                }
-            } else if (c == '"' && !inSingle) {
-                if (!inDouble) {
-                    doubleQuotes++;
-                    inDouble = true;
-                } else {
-                    inDouble = false;
-                }
-            }
-        }
-
-        return singleQuotes % 2 == 0 && doubleQuotes % 2 == 0;
     }
 
 }

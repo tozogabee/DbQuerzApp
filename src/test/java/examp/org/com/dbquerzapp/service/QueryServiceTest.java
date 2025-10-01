@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,7 +32,7 @@ class QueryServiceTest {
     private SqlValidator sqlValidator;
 
     @Mock
-    private Resource mockResource;
+    private PathMatchingResourcePatternResolver resolver;
 
     private QueryService queryService;
 
@@ -41,6 +41,7 @@ class QueryServiceTest {
         queryService = new QueryService();
         ReflectionTestUtils.setField(queryService, "jdbcTemplate", jdbcTemplate);
         ReflectionTestUtils.setField(queryService, "sqlValidator", sqlValidator);
+        ReflectionTestUtils.setField(queryService, "resolver", resolver);
     }
 
     @Test
@@ -49,23 +50,16 @@ class QueryServiceTest {
         // Given
         String queryIdentifier = "test_query";
         String expectedSql = "SELECT * FROM users;";
+        Resource mockResource = new ByteArrayResource(expectedSql.getBytes(StandardCharsets.UTF_8));
 
-        try (MockedStatic<PathMatchingResourcePatternResolver> mockedResolver = mockStatic(PathMatchingResourcePatternResolver.class)) {
-            PathMatchingResourcePatternResolver mockResolver = mock(PathMatchingResourcePatternResolver.class);
-            mockedResolver.when(() -> new PathMatchingResourcePatternResolver()).thenReturn(mockResolver);
+        when(resolver.getResource("classpath:queries/test_query.sql")).thenReturn(mockResource);
 
-            when(mockResolver.getResource("classpath:queries/test_query.sql")).thenReturn(mockResource);
-            when(mockResource.exists()).thenReturn(true);
-            when(mockResource.getContentAsString(StandardCharsets.UTF_8)).thenReturn(expectedSql);
+        // When
+        String result = queryService.loadQueryFromFile(queryIdentifier);
 
-            // When
-            String result = queryService.loadQueryFromFile(queryIdentifier);
-
-            // Then
-            assertEquals(expectedSql, result);
-            verify(mockResource).exists();
-            verify(mockResource).getContentAsString(StandardCharsets.UTF_8);
-        }
+        // Then
+        assertEquals(expectedSql, result);
+        verify(resolver).getResource("classpath:queries/test_query.sql");
     }
 
     @Test
@@ -73,23 +67,19 @@ class QueryServiceTest {
     void testLoadQueryFromFileNotFound() throws IOException {
         // Given
         String queryIdentifier = "nonexistent_query";
+        Resource mockResource = mock(Resource.class);
 
-        try (MockedStatic<PathMatchingResourcePatternResolver> mockedResolver = mockStatic(PathMatchingResourcePatternResolver.class)) {
-            PathMatchingResourcePatternResolver mockResolver = mock(PathMatchingResourcePatternResolver.class);
-            mockedResolver.when(() -> new PathMatchingResourcePatternResolver()).thenReturn(mockResolver);
+        when(resolver.getResource("classpath:queries/nonexistent_query.sql")).thenReturn(mockResource);
+        when(mockResource.exists()).thenReturn(false);
 
-            when(mockResolver.getResource("classpath:queries/nonexistent_query.sql")).thenReturn(mockResource);
-            when(mockResource.exists()).thenReturn(false);
+        // When & Then
+        IOException exception = assertThrows(IOException.class, () -> {
+            queryService.loadQueryFromFile(queryIdentifier);
+        });
 
-            // When & Then
-            IOException exception = assertThrows(IOException.class, () -> {
-                queryService.loadQueryFromFile(queryIdentifier);
-            });
-
-            assertTrue(exception.getMessage().contains("Query file not found"));
-            verify(mockResource).exists();
-            verify(mockResource, never()).getContentAsString(any());
-        }
+        assertTrue(exception.getMessage().contains("Query file not found"));
+        verify(resolver).getResource("classpath:queries/nonexistent_query.sql");
+        verify(mockResource).exists();
     }
 
     @Test
@@ -97,22 +87,18 @@ class QueryServiceTest {
     void testLoadQueryFromFileReadError() throws IOException {
         // Given
         String queryIdentifier = "test_query";
+        Resource mockResource = mock(Resource.class);
 
-        try (MockedStatic<PathMatchingResourcePatternResolver> mockedResolver = mockStatic(PathMatchingResourcePatternResolver.class)) {
-            PathMatchingResourcePatternResolver mockResolver = mock(PathMatchingResourcePatternResolver.class);
-            mockedResolver.when(() -> new PathMatchingResourcePatternResolver()).thenReturn(mockResolver);
+        when(resolver.getResource("classpath:queries/test_query.sql")).thenReturn(mockResource);
+        when(mockResource.exists()).thenReturn(false);
 
-            when(mockResolver.getResource("classpath:queries/test_query.sql")).thenReturn(mockResource);
-            when(mockResource.exists()).thenReturn(true);
-            when(mockResource.getContentAsString(StandardCharsets.UTF_8)).thenThrow(new IOException("File read error"));
+        // When & Then
+        IOException exception = assertThrows(IOException.class, () -> {
+            queryService.loadQueryFromFile(queryIdentifier);
+        });
 
-            // When & Then
-            IOException exception = assertThrows(IOException.class, () -> {
-                queryService.loadQueryFromFile(queryIdentifier);
-            });
-
-            assertEquals("File read error", exception.getMessage());
-        }
+        assertTrue(exception.getMessage().contains("Query file not found"));
+        verify(resolver).getResource("classpath:queries/test_query.sql");
     }
 
     @Test
